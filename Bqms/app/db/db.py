@@ -76,6 +76,7 @@ class Ticket(db.Model):
     served_at = db.Column(db.DateTime, nullable=True)
     teller_id = db.Column(db.String(36), db.ForeignKey('teller.id'), nullable=True)
     is_canceled = db.Column(db.Boolean, default=False)
+    completed = db.Column(db.Boolean, default=False)
 
     TICKET_TYPE_LABELS = {
         'W': 'Withdrawal',
@@ -101,7 +102,8 @@ class Ticket(db.Model):
             "ticket_number": self.ticket_number,
             "ticket_type" : self.get_ticket_type_display(),
             "issue_date": self.created_at.strftime('%Y-%m-%d %H:%M:%S'),
-            'Teller': get_teller_name(self.teller_id)  if self.teller_id else None
+            'Teller': get_teller_name(self.teller_id)  if self.teller_id else None,
+            'completed': self.completed,
         }
 
 def get_teller_name(id):

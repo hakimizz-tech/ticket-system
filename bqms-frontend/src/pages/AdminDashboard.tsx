@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 import React, { useEffect, useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -13,10 +12,8 @@ import {
   CheckCircleIcon,
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
-
-
 export default function AdminDashboard() {
-  const { user, accessToken, logout} = useAuth()
+  const { user, accessToken, logout } = useAuth()
   const navigate = useNavigate()
   // Add this effect to verify token on mount
   useEffect(() => {
@@ -29,19 +26,20 @@ export default function AdminDashboard() {
     new Date().toISOString().split('T')[0],
   )
   const [filterStatus, setFilterStatus] = useState<
-    'all' | 'pending' | 'served'
+    'all' | 'pending' | 'served' | 'completed' | 'canceled'
   >('all')
-  const [showActiveTellersOnly, setShowActiveTellersOnly] = useState(false)
+  const [showActiveTellersOnly, setShowActiveTellersOnly] = useState(true) // Changed default to true
   const handleLogout = () => {
     logout()
     navigate('/login')
   }
   const { data: ticketsData, isLoading: isLoadingTickets } = useQuery({
-    queryKey: ['tickets', selectedDate],
+    queryKey: ['tickets', selectedDate, filterStatus],
     queryFn: async () => {
-      const url = selectedDate
-        ? `${endpoints.listTickets}?date=${selectedDate}`
-        : endpoints.listTickets
+      const params = new URLSearchParams()
+      if (selectedDate) params.append('date', selectedDate)
+      if (filterStatus !== 'all') params.append('status', filterStatus)
+      const url = `${endpoints.listTickets}?${params.toString()}`
       const response = await api.get(url)
       return response.data
     },
@@ -49,9 +47,7 @@ export default function AdminDashboard() {
   const { data: tellersData } = useQuery({
     queryKey: ['tellers', showActiveTellersOnly],
     queryFn: async () => {
-      const url = showActiveTellersOnly
-        ? `${endpoints.listTellers}?active=true`
-        : endpoints.listTellers
+      const url = `${endpoints.listTellers}${showActiveTellersOnly ? '?active=false' : ''}`
       const response = await api.get(url)
       return response.data
     },
@@ -95,12 +91,18 @@ export default function AdminDashboard() {
       toast.success(data.message, {
         position: 'bottom-right',
       })
-      queryClient.invalidateQueries({
-        queryKey: ['tickets'],
-      })
-      queryClient.invalidateQueries({
-        queryKey: ['tellers'],
-      })
+      // Mark ticket as completed in UI
+      const updatedTicket = {
+        ...data.ticket,
+        completed: true,
+        status: 'completed' as const,
+      }
+      queryClient.setQueryData(['tickets'], (old: any) => ({
+        ...old,
+        tickets: old.tickets.map((t: Ticket) =>
+          t.id === updatedTicket.id ? updatedTicket : t,
+        ),
+      }))
     },
     onError: () => {
       toast.error('Failed to complete ticket', {
@@ -111,6 +113,16 @@ export default function AdminDashboard() {
   const filteredTickets =
     ticketsData?.tickets.filter((ticket) => {
       if (filterStatus === 'all') return true
+      if (
+        filterStatus === 'completed' &&
+        (ticket.status === 'completed' || ticket.completed)
+      )
+        return true
+      if (
+        filterStatus === 'canceled' &&
+        (ticket.status === 'canceled' || ticket.canceled)
+      )
+        return true
       return ticket.status === filterStatus
     }) ?? []
   return (
@@ -155,11 +167,13 @@ export default function AdminDashboard() {
                 <option value="all">All Tickets</option>
                 <option value="pending">Pending</option>
                 <option value="served">Served</option>
+                <option value="completed">Completed</option>
+                <option value="canceled">Canceled</option>
               </select>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Teller Status
+                Teller Filter
               </label>
               <label className="flex items-center space-x-2 mt-2">
                 <input
@@ -256,6 +270,76 @@ function TicketCard({
   onComplete,
 }: TicketCardProps) {
   const [isAssigning, setIsAssigning] = useState(false)
+  const getStatusColor = (status: string, completed?: boolean) => {
+    if (completed) return 'bg-green-600 text-white'
+    if (status === 'canceled') return 'bg-red-600 text-white'
+    switch (status) {
+      case 'completed':
+        return 'bg-green-600 text-white'
+      case 'pending':
+        return 'bg-[#0066ff] text-white'
+      case 'served':
+        return 'bg-black text-white'
+      case 'canceled':
+        return 'bg-red-600 text-white'
+      default:
+        return 'bg-[#0066ff] text-white'
+    }
+  }
+  const getActionButton = (ticket: Ticket) => {
+    if (ticket.canceled || ticket.status === 'canceled') {
+      return (
+        <span className="px-3 py-1 text-sm bg-red-100 text-red-800 rounded-lg flex items-center space-x-1 opacity-75">
+          <span>Canceled</span>
+        </span>
+      )
+    }
+    if (ticket.completed || ticket.status === 'completed') {
+      return (
+        <span className="px-3 py-1 text-sm bg-green-100 text-green-800 rounded-lg flex items-center space-x-1">
+          <CheckCircleIcon size={16} />
+          <span>Completed</span>
+        </span>
+      )
+    }
+    if (ticket.status === 'served') {
+      return (
+        <button
+          onClick={onComplete}
+          className="px-3 py-1 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center space-x-1"
+        >
+          <CheckCircleIcon size={16} />
+          <span>Complete</span>
+        </button>
+      )
+    }
+    return (
+      <div className="relative">
+        <button
+          onClick={() => setIsAssigning(!isAssigning)}
+          className="px-3 py-1 text-sm bg-black text-white rounded-lg hover:bg-gray-800"
+        >
+          Assign Teller
+        </button>
+        {isAssigning && (
+          <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-10">
+            {tellers.map((teller) => (
+              <button
+                key={teller.id}
+                onClick={() => {
+                  onServeTeller(teller.id)
+                  setIsAssigning(false)
+                }}
+                className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100"
+              >
+                {teller.name}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    )
+  }
   return (
     <motion.div
       layout
@@ -271,15 +355,15 @@ function TicketCard({
         opacity: 0,
         scale: 0.95,
       }}
-      className="bg-white border border-gray-200 rounded-lg shadow-sm p-4"
+      className={`bg-white border rounded-lg shadow-sm p-4 ${ticket.completed || ticket.status === 'completed' ? 'border-green-500 bg-green-50' : ticket.canceled || ticket.status === 'canceled' ? 'border-red-500 bg-red-50' : 'border-gray-200'}`}
     >
       <div className="flex justify-between items-start">
         <div>
           <div className="flex items-center space-x-2 mb-2">
             <span
-              className={`px-2 py-1 rounded-full text-xs font-medium ${ticket.status === 'pending' ? 'bg-[#0066ff] text-white' : 'bg-black text-white'}`}
+              className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(ticket.canceled ? 'canceled' : ticket.status, ticket.completed)}`}
             >
-              {ticket.status}
+              {ticket.canceled ? 'canceled' : ticket.status}
             </span>
             <h3 className="text-lg font-semibold">#{ticket.ticket_number}</h3>
           </div>
@@ -292,40 +376,7 @@ function TicketCard({
           </p>
         </div>
         <div className="flex items-center space-x-2">
-          {ticket.status === 'pending' ? (
-            <div className="relative">
-              <button
-                onClick={() => setIsAssigning(!isAssigning)}
-                className="px-3 py-1 text-sm bg-black text-white rounded-lg hover:bg-gray-800"
-              >
-                Assign Teller
-              </button>
-              {isAssigning && (
-                <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-10">
-                  {tellers.map((teller) => (
-                    <button
-                      key={teller.id}
-                      onClick={() => {
-                        onServeTeller(teller.id)
-                        setIsAssigning(false)
-                      }}
-                      className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100"
-                    >
-                      {teller.name}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          ) : (
-            <button
-              onClick={onComplete}
-              className="px-3 py-1 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center space-x-1"
-            >
-              <CheckCircleIcon size={16} />
-              <span>Complete</span>
-            </button>
-          )}
+          {getActionButton(ticket)}
         </div>
       </div>
     </motion.div>

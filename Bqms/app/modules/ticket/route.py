@@ -88,7 +88,7 @@ def cancel_ticket():
             pass
     
     try:
-        ticket.is_cancelled = True
+        ticket.is_canceled = True
         db.session.commit()
         
         return jsonify({
@@ -166,7 +166,22 @@ def get_ticket_list():
     elif status == 'served':
         tickets = Ticket.query.filter(
             Ticket.created_at.between(start_of_day, end_of_day),
-            Ticket.is_served == True
+            Ticket.is_served == True,
+            Ticket.completed == False,
+            Ticket.is_canceled == False
+        ).all()
+
+    elif status == 'completed':
+        tickets = Ticket.query.filter(
+            Ticket.created_at.between(start_of_day, end_of_day),
+            Ticket.is_served == True,
+            Ticket.completed == True
+        ).all()
+    
+    elif status == 'canceled':
+        tickets = Ticket.query.filter(
+            Ticket.created_at.between(start_of_day, end_of_day),
+            Ticket.is_canceled == True
         ).all()
     else:
         tickets = Ticket.query.filter(
@@ -241,6 +256,9 @@ def complete_ticket_service( ticket_id):
     
     # Update teller status
     teller.is_active = False
+
+    #update ticket status
+    ticket.completed = True
     
     db.session.commit()
     
@@ -258,9 +276,9 @@ def get_tellers():
     active_only = request.args.get('active', 'false').lower() == 'true'
     
     if active_only:
-        tellers = Teller.query.filter_by(is_active=True).all()
+        tellers = Teller.query.filter_by(is_active=False).all()
     else:
-        tellers = Teller.query.all() 
+        tellers = Teller.query.all()
     
     return jsonify({
         'total': len(tellers),

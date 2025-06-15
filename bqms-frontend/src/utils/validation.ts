@@ -1,21 +1,23 @@
 import { z } from 'zod'
 export const loginSchema = z.object({
-  username: z.string().min(3, "Username required"),
+  username: z.string().min(3, 'Username required'),
   password: z
     .string()
-    .min(8, "Password must be at least 8 characters")
-    .regex(/[A-Z]/, "Password must contain at least one uppercase letter")
-    .regex(/[a-z]/, "Password must contain at least one lowercase letter")
-    .regex(/[0-9]/, "Password must contain at least one number")
+    .min(8, 'Password must be at least 8 characters')
+    .regex(/[A-Z]/, 'Password must contain at least one uppercase letter')
+    .regex(/[a-z]/, 'Password must contain at least one lowercase letter')
+    .regex(/[0-9]/, 'Password must contain at least one number'),
 })
 export type LoginFormData = z.infer<typeof loginSchema>
 export interface Ticket {
   id: string
   ticket_number: string
   ticket_type: string
-  status: 'pending' | 'served'
+  status: 'pending' | 'served' | 'completed' | 'canceled'
   Teller: string | null
   issue_date: string
+  completed?: boolean
+  canceled?: boolean
 }
 export interface NewTicketResponse {
   message: string

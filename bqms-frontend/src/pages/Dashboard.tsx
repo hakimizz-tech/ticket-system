@@ -7,9 +7,12 @@ import { motion, AnimatePresence } from 'framer-motion'
 import type { Ticket } from '../utils/validation'
 import { Toaster } from 'sonner'
 import { useTicketStore } from '../store/ticketStore'
+
+
+
 export default function Dashboard() {
   const [activeTab, setActiveTab] = useState<'book' | 'tickets'>('book')
-  const { tickets, addTicket, updateTicket, removeTicket } = useTicketStore()
+  const { tickets, addTicket, updateTicket, removeTicket,} = useTicketStore()
 
   const handleCreateTicket = (newTicket: Ticket, isUpdate: boolean = false) => {
     if (isUpdate) {

@@ -3,8 +3,8 @@ const BASE_URL = 'http://localhost:5000/api'
 export const api = axios.create({
   baseURL: BASE_URL,
   headers: {
-    'Content-Type': 'application/json'
-  }
+    'Content-Type': 'application/json',
+  },
 })
 
 export const TICKET_TYPES = {
@@ -12,7 +12,7 @@ export const TICKET_TYPES = {
   deposit: 'D',
   transfer: 'T',
   inquiry: 'I',
-  other: 'O'
+  other: 'O',
 } as const
 
 export const endpoints = {
@@ -21,13 +21,12 @@ export const endpoints = {
   newTicket: '/ticket/new',
   cancelTicket: '/ticket/cancel',
   validateTicket: '/ticket/valid',
-  listTickets: '/ticket/list',
+  listTickets: '/ticket/list', // Now supports ?status=completed parameter
   listTellers: '/tellers',
   serveTicket: (ticketId: string) => `/ticket/${ticketId}/serve`,
   completeTicket: (ticketId: string) => `/ticket/${ticketId}/complete`,
-  autoAssignTicket: (ticketId: string) => `/tickets/${ticketId}/auto-assign`
+  autoAssignTicket: (ticketId: string) => `/tickets/${ticketId}/auto-assign`,
 }
-
 
 export const setAuthToken = (token: string | null) => {
   if (token) {
@@ -36,7 +35,6 @@ export const setAuthToken = (token: string | null) => {
     delete api.defaults.headers.common['Authorization']
   }
 }
-
 
 export const setRefreshToken = (token: string) => {
   api.defaults.headers.common['Authorization'] = `Bearer ${token}`

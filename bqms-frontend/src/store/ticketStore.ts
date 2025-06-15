@@ -7,6 +7,7 @@ interface TicketStore {
   addTicket: (ticket: Ticket) => void
   removeTicket: (id: string) => void
   updateTicket: (ticket: Ticket) => void
+  reset : () => void
 }
 
 export const useTicketStore = create<TicketStore>()(
@@ -30,6 +31,7 @@ export const useTicketStore = create<TicketStore>()(
             ticket.id === updatedTicket.id ? updatedTicket : ticket
           ),
         })),
+      reset: () => set({ tickets: [] }),
     }),
     {
       name: 'ticket-storage',
